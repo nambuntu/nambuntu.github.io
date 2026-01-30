@@ -1,0 +1,9 @@
+# Ignore volatile UI-related state
+.obsidian
+
+# Ignore system and editor files (more specific to what I do)
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
