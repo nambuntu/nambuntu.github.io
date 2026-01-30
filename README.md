@@ -109,6 +109,7 @@ Cloud, AI, Real Estate, E-commerce, ERP
 - [Deploy with confidence](deploy/deploy-with-confidence-quicknotes.md)
 - [Kubernetes at Scale](cloud/kubernetes-at-scale.md)
 - [Spec Driven Development SDD](sdd/spec-driven-development.md)
+
 ## Contacts
 - [LinkedIn](https://www.linkedin.com/in/alababi/)
 - Email: namnvhue@gmail.com
