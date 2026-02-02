@@ -109,6 +109,7 @@ Cloud, AI, Real Estate, E-commerce, ERP
 - [Deploy with confidence](deploy/deploy-with-confidence-quicknotes.md)
 - [Kubernetes at Scale](cloud/kubernetes-at-scale.md)
 - [Spec Driven Development SDD](sdd/spec-driven-development.md)
+- [Istio Sidecars, Ambient Mode, and Why Kubernetes Needed Adult Supervision](cloud/istio-sidecars-ambient-mode.md)
 
 ## Contacts
 - [LinkedIn](https://www.linkedin.com/in/alababi/)
