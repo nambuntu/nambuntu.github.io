@@ -110,6 +110,7 @@ Cloud, AI, Real Estate, E-commerce, ERP
 - [Kubernetes at Scale](cloud/kubernetes-at-scale.md)
 - [Spec Driven Development SDD](sdd/spec-driven-development.md)
 - [Istio Sidecars, Ambient Mode, and Why Kubernetes Needed Adult Supervision](cloud/istio-sidecars-ambient-mode.md)
+- [From Raw Kubernetes to Self-Service The Cost Curve Most Startups Don’t See Coming](cloud/why-kubernetes-primitives-cost-more)
 
 ## Contacts
 - [LinkedIn](https://www.linkedin.com/in/alababi/)
