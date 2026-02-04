@@ -1,13 +1,11 @@
 # From Raw Kubernetes to Self-Service  
 ## The Cost Curve Most Startups Don’t See Coming
 
-This is a story I’ve seen play out in a successful startup team: how Kubernetes shifts from leverage to overhead — and how the cost curve quietly flips when self-service never arrives.
-
-Most startups don’t *choose* to build a Kubernetes platform.
+Most startups don’t _choose_ to build a Kubernetes platform.
 
 They drift into it.
 
-This is the story of how many teams move from “Kubernetes as leverage” to “Kubernetes as overhead” — and why the transition often happens without anyone explicitly deciding it should.
+This is a story I’ve seen play out in a successful startup team: how Kubernetes shifts from leverage to overhead — and how the cost curve quietly flips when self-service never arrives.
 
 ---
 
