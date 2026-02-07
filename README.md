@@ -111,6 +111,7 @@ Cloud, AI, Real Estate, E-commerce, ERP
 - [Spec Driven Development SDD](sdd/spec-driven-development.md)
 - [Istio Sidecars, Ambient Mode, and Why Kubernetes Needed Adult Supervision](cloud/istio-sidecars-ambient-mode.md)
 - [From Raw Kubernetes to Self-Service The Cost Curve Most Startups Don’t See Coming](cloud/why-kubernetes-primitives-cost-more)
+- [How I Built “Wix on Kubernetes” Without Losing My Mind (78 Tasks, 3 Hours, Full Story)](sdd/build-self-service-k8s-platform.md)
 
 ## Contacts
 - [LinkedIn](https://www.linkedin.com/in/alababi/)
