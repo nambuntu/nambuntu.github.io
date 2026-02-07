@@ -294,4 +294,4 @@ Watching a Pod crash mid-refresh, the frontend flipping `status: failed`, and th
 
 By the end, I realized: self-service is not about empowerment. It’s about controlled chaos. You give users power, they misuse it. You automate, Kubernetes ignores it. You build dashboards, users will still scream. And yet, somehow, it works. Most of the time. Enough to call it a victory.
 
-Link to Repo: https://github.com/nambuntu/k8s-selfservice
+Link to Repo: [https://github.com/nambuntu/k8s-selfservice](https://github.com/nambuntu/k8s-selfservice)
