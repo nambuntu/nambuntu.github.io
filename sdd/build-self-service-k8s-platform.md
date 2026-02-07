@@ -243,6 +243,8 @@ I added:
 
 Everything automated where possible. AI scaffolded tests, logs, and YAML. I mostly stayed alive.  
 
+---
+
 ## Phase 7 and beyond: The Harsh Truth About Self-Service — Or How I Learned That Giving Users Power is a Terrible Idea
 
 Three hours, 78 tasks, dozens of Pods, and a mild caffeine overdose later… I sat back and stared at my little self-service “Wix on Kubernetes” platform. And you know what hit me? Self-service is a lovely idea… until humans get involved. Or Kubernetes decides it hates you.  
