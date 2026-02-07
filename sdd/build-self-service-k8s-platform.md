@@ -2,7 +2,9 @@
 # How I Built “Wix on Kubernetes” Without Losing My Mind (78 Tasks, 3 Hours, Full Story)
 
 If you’ve ever tried to build a platform where users submit website requests, Kubernetes spins up a pod with their HTML, and they can see the results live… you know the pain. Pods fail silently. Services refuse to expose. CRDs mock you with status `null` like they’re laughing at you.  
-![[web-ui.jpg]]
+
+![Web UI](web-ui.jpg)
+
 I did all this in **3 hours**, not 3 days. I had SDD guiding the tasks, AI generating boilerplate code, and a stubborn need to survive the chaos. Here’s how it went.  
 
 ---
@@ -211,7 +213,8 @@ func BuildPodSpec(site Website) *corev1.Pod {
 ```
 
 Watching the reconciliation loop work, and seeing `status: provisioned` appear in the backend… this is why we build software. Tiny victories.  
-![[website-provisioner-k8s-controller-log.jpg]]
+
+![Minikube Pod Logs](website-provisioner-k8s-controller-log.jpg)
 
 ---
 
