@@ -2,13 +2,13 @@
 
 ## Summary
 
-Software & Product Engineer with **14+ years of experience** building and scaling systems across **cloud platforms, ERP, e-commerce, and real estate**.
+Software & Product Engineer who builds **platforms, not features**.
 
-Focused on **Kubernetes platforms**, **microservices**, and **spec-driven development**, with a strong interest in improving developer productivity through better tooling and automation.
+Work spans Kubernetes, distributed systems, and spec-driven development, with a focus on turning messy infrastructure into boring, reliable, developer-friendly systems.
 
 ---
 
-## Experience (Selected)
+## Experience
 
 **Senior Software Engineer — SAP** (2021–Present)  
 Kubernetes platforms for SAP HANA Cloud, microservices, multi-region scalability, SDD/TDD.
