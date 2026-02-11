@@ -270,15 +270,15 @@ Self-service platforms promise: *“Empower users, automate everything, watch ef
 
 ### Comparing My Chaos to the Giants
 
-| Feature | Industry Giants | My Little Minikube Playground | Honest Notes |
-|---------|----------------|------------------------------|-------------|
-| Automation & orchestration | ✅ | ⚡ Semi-working | Works if you whisper nicely to Pods |
-| Dashboard/UI | ✅ | ⚡ Minimal | Clickable IPs, very low elegance |
-| Monitoring & logs | ✅ | ⚡ Basic | Console spam + status badges, that’s it |
-| Infrastructure self-service | ✅ | ❌ | Users cannot touch nodes, thank god |
-| Security & governance | ✅ | ⚡ Minimal | Sanitized HTML, pray nothing malicious happens |
-| Standard templates | ✅ | ❌ | One submission form to rule them all |
-| Reliability | ✅ | ⚡ Conditional | Pods survive if unicorns approve |
+| Feature                     | Industry Giants | My Little Minikube Playground | Honest Notes                                   |
+| --------------------------- | --------------- | ----------------------------- | ---------------------------------------------- |
+| Automation & orchestration  | ✅               | ⚡ Semi-working                | Works if you whisper nicely to Pods            |
+| Dashboard/UI                | ✅               | ⚡ Minimal                     | Clickable IPs, very low elegance               |
+| Monitoring & logs           | ✅               | ⚡ Basic                       | Console spam + status badges, that’s it        |
+| Infrastructure self-service | ✅               | ❌                             | Users cannot touch nodes, thank god            |
+| Security & governance       | ✅               | ⚡ Minimal                     | Sanitized HTML, pray nothing malicious happens |
+| Standard templates          | ✅               | ❌                             | One submission form to rule them all           |
+| Reliability                 | ✅               | ⚡ Conditional                 | Pods survive if unicorns approve               |
 
 Truth: I created a tiny, shaky, glorified demo of what Microsoft, Google, and Amazon do at scale. But it’s mine, it works (sometimes), and I didn’t cry… much.
 
