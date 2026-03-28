@@ -3,7 +3,7 @@
 Ingolstadt, Germany  
 
 ## Profile
-Software engineer with 14+ years of experience building backend platforms and product systems across cloud infrastructure, ERP, e-commerce, and real estate technology. I specialise in turning operational complexity into reliable software, especially where scale, automation, and system correctness matter.
+Software engineer with 15+ years of experience building backend platforms and product systems across cloud infrastructure, ERP, e-commerce, and real estate technology. I specialise in turning operational complexity into reliable software, especially where scale, automation, and system correctness matter.
 
 My strongest work sits at the intersection of platform engineering and product thinking: designing services, operators, and integrations that make hard systems easier to run. I bring deep hands-on experience in Go, Java, Kubernetes, microservices, and distributed systems, combined with a practical interest in AI-assisted, specification-first engineering.
 
