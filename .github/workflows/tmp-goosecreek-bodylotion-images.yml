@@ -1,0 +1,173 @@
+name: Temporary Goose Creek bodylotion image fetch
+
+on:
+  push:
+    branches:
+      - "tmp/goosecreek-bodylotion-images-20260921"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Fetch exact product-page images
+        shell: bash
+        run: |
+          python -m pip install --quiet requests beautifulsoup4 pillow
+          cat > /tmp/fetch_gc.py <<'PY'
+          import csv, hashlib, io, re, time, zipfile
+          from pathlib import Path
+          from urllib.parse import urljoin, urlparse, unquote
+          import requests
+          from bs4 import BeautifulSoup
+          from PIL import Image
+
+          PRODUCTS = [
+            ("01","Apple Pom Twister","https://www.goosecreekcandle.de/Apple-Pom-Twister-Bodylotion-250ml"),
+            ("02","Autumn Romance","https://www.goosecreekcandle.de/Autumn-Romance-Bodylotion-250ml"),
+            ("03","Beach Dreams","https://www.goosecreekcandle.de/Beach-Dreams-Bodylotion-250ml"),
+            ("04","Black Amber Plum","https://www.goosecreekcandle.de/Black-Amber-Plum-Bodylotion-250ml"),
+            ("05","Blood Orange","https://www.goosecreekcandle.de/Blood-Orange-Bodylotion-250ml"),
+            ("06","Burlwood & Oak","https://www.goosecreekcandle.de/Burlwood-Oak-Bodylotion-250ml"),
+            ("07","Candy Cane Kiss","https://www.goosecreekcandle.de/Candy-Cane-Kiss-Bodylotion-250ml"),
+            ("08","Carnival Apple","https://www.goosecreekcandle.de/Carnival-Apple-Bodylotion-250ml"),
+            ("09","Carnival Cake","https://www.goosecreekcandle.de/Carnival-Cake-Bodylotion-250ml"),
+            ("10","Cherry Blossom","https://www.goosecreekcandle.de/Cherry-Blossom-Bodylotion-250ml"),
+            ("11","Christmas Magic","https://www.goosecreekcandle.de/Christmas-Magic-Bodylotion-250ml"),
+            ("12","Cotton Candy","https://www.goosecreekcandle.de/Cotton-Candy-Bodylotion-250ml"),
+            ("13","Cozy Kitten","https://www.goosecreekcandle.de/Cozy-Kitten-Bodylotion-250ml"),
+            ("14","Dragonfruit Splash","https://www.goosecreekcandle.de/Dragonfruit-Splash-Bodylotion-250ml"),
+            ("15","Eucalyptus Rain Drops","https://www.goosecreekcandle.de/Eucalyptus-Rain-Drops-Bodylotion-250ml"),
+            ("16","Half Moon Bay","https://www.goosecreekcandle.de/Half-Moon-Bay-Bodylotion-250ml"),
+            ("17","Hibiscus Fruit Punch","https://www.goosecreekcandle.de/Hibiscus-Fruit-Punch-Bodylotion-250ml"),
+            ("18","Island Bliss","https://www.goosecreekcandle.de/Island-Bliss-Bodylotion-250ml"),
+            ("19","Lavender Vanilla","https://www.goosecreekcandle.de/Lavender-Vanilla-Bodylotion-250ml"),
+            ("20","Limoncello","https://www.goosecreekcandle.de/Limoncello-Bodylotion-250ml"),
+            ("21","Soothing Coconut","https://www.goosecreekcandle.de/Soothing-Coconut-Bodylotion-250ml"),
+            ("22","Sunday Drive","https://www.goosecreekcandle.de/Sunday-Drive-Bodylotion-250ml"),
+            ("23","Sweet Pine & Snowflakes","https://www.goosecreekcandle.de/Sweet-Pine-Snowflakes-Bodylotion-250ml"),
+            ("24","Tropical Daydream","https://www.goosecreekcandle.de/Tropical-Daydream-Bodylotion-250ml"),
+            ("25","Unicorn Candy","https://www.goosecreekcandle.de/Unicorn-Candy-Bodylotion-250ml"),
+            ("26","Vanilla Pumpkin Waffle","https://www.goosecreekcandle.de/Vanilla-Pumpkin-Waffle-Bodylotion-250ml"),
+            ("27","Warm Sunset","https://www.goosecreekcandle.de/Warm-Sunset-Bodylotion-250ml"),
+            ("28","Watermelon Lemonade","https://www.goosecreekcandle.de/Watermelon-Lemonade-Bodylotion-250ml"),
+            ("29","Weekend Getaway","https://www.goosecreekcandle.de/Weekend-Getaway-Bodylotion-250ml"),
+            ("30","Wildest Dreams","https://www.goosecreekcandle.de/Wildest-Dreams-Bodylotion-250ml"),
+            ("31","Winter Splendor","https://www.goosecreekcandle.de/Winter-Splendor-Bodylotion-250ml"),
+          ]
+
+          ROOT=Path("goosecreek_bodylotion_images"); ROOT.mkdir(exist_ok=True)
+          S=requests.Session()
+          S.headers.update({"User-Agent":"Mozilla/5.0 Chrome/128 Safari/537.36","Accept-Language":"de-DE,de;q=0.9,en;q=0.8"})
+
+          def slug(s): return re.sub(r"[^a-z0-9]+","-",s.lower()).strip("-")
+          def norm(s): return re.sub(r"\s+"," ",(s or "")).strip().lower()
+          def urls_from(raw,base):
+              out=[]
+              if not raw: return out
+              for bit in str(raw).split(","):
+                  bit=bit.strip().split(" ")[0]
+                  if not bit: continue
+                  u=urljoin(base,bit)
+                  if "/media/image/product/" in u and re.search(r"\.(?:jpe?g|png|webp)(?:\?|$)",u,re.I):
+                      out.append(u)
+              return out
+
+          manifest=[]; failures=[]
+          for num,name,page_url in PRODUCTS:
+              folder=ROOT/f"{num}_{slug(name)}"; folder.mkdir(exist_ok=True)
+              try:
+                  r=S.get(page_url,timeout=30); r.raise_for_status()
+              except Exception as e:
+                  failures.append([num,name,page_url,"page",str(e)]); continue
+
+              soup=BeautifulSoup(r.text,"html.parser")
+              h1=soup.find("h1"); title=norm(h1.get_text(" ",strip=True) if h1 else name)
+              exact=set(); allu=set(); counts={}
+              for tag in soup.find_all(["img","source","a"]):
+                  local=[]
+                  for k in ("src","data-src","data-original","data-lazy-src","href","srcset","data-srcset"):
+                      local += urls_from(tag.get(k),page_url)
+                  allu.update(local)
+                  alt=norm(tag.get("alt") or tag.get("title"))
+                  if alt and (alt==title or name.lower() in alt): exact.update(local)
+                  for u in local:
+                      m=re.search(r"/media/image/product/([^/]+)/",urlparse(u).path)
+                      if m: counts[m.group(1)]=counts.get(m.group(1),0)+1
+              pool=exact or allu
+              if counts:
+                  pf=max(counts,key=counts.get)
+                  same={u for u in pool if f"/product/{pf}/" in u}
+                  if same: pool=same
+
+              groups={}
+              for u in pool:
+                  leaf=unquote(urlparse(u).path.rsplit("/",1)[-1])
+                  stem=re.sub(r"\.(?:jpe?g|png|webp)$","",leaf,flags=re.I)
+                  if "body" in stem.lower() and "lotion" in stem.lower():
+                      groups.setdefault(stem,[]).append(u)
+              if not groups:
+                  for u in pool:
+                      leaf=unquote(urlparse(u).path.rsplit("/",1)[-1])
+                      stem=re.sub(r"\.(?:jpe?g|png|webp)$","",leaf,flags=re.I)
+                      groups.setdefault(stem,[]).append(u)
+
+              def rank(u):
+                  p=urlparse(u).path
+                  for s,v in [("/xl/",50),("/lg/",40),("/md/",30),("/sm/",20),("/xs/",10)]:
+                      if s in p: return v
+                  return 0
+
+              picked=[]
+              for stem,cands in sorted(groups.items()):
+                  tries=[]
+                  for u in sorted(set(cands),key=rank,reverse=True):
+                      for old in ("/xs/","/sm/","/md/"):
+                          if old in u: tries.append(u.replace(old,"/lg/"))
+                      tries.append(u)
+                  for u in dict.fromkeys(tries):
+                      try:
+                          rr=S.get(u,headers={"Referer":page_url},timeout=30)
+                          if rr.status_code!=200 or len(rr.content)<2000 or "image" not in rr.headers.get("content-type",""): continue
+                          im=Image.open(io.BytesIO(rr.content)); im.verify()
+                          picked.append((u,rr.content,im.format)); break
+                      except Exception: pass
+                  if len(picked)>=3: break
+
+              if not picked:
+                  failures.append([num,name,page_url,"images","No exact downloadable images found"]); continue
+              for j,(u,data,fmt) in enumerate(picked,1):
+                  ext={"JPEG":"jpg","PNG":"png","WEBP":"webp"}.get((fmt or "").upper(),"jpg")
+                  fp=folder/f"{j:02d}.{ext}"; fp.write_bytes(data)
+                  try: w,h=Image.open(fp).size
+                  except Exception: w=h=None
+                  manifest.append([num,name,page_url,j,u,str(fp),hashlib.sha256(data).hexdigest(),len(data),w,h,"candidate-unapproved"])
+              time.sleep(.1)
+
+          with open(ROOT/"manifest.csv","w",newline="",encoding="utf-8-sig") as f:
+              w=csv.writer(f); w.writerow(["product_no","product_name","source_page","image_no","source_image_url","local_path","sha256","bytes","width","height","status"]); w.writerows(manifest)
+          with open(ROOT/"failures.csv","w",newline="",encoding="utf-8-sig") as f:
+              w=csv.writer(f); w.writerow(["product_no","product_name","source_page","stage","error"]); w.writerows(failures)
+          (ROOT/"README.txt").write_text("Exact-product image candidates for Nam HappyJam review. Not approved for public use. Follow catalogue/IMAGE_WORKFLOW.md before publishing.\n",encoding="utf-8")
+
+          zname=Path("NHJ_GooseCreek_Bodylotion_31_Product_Images_2026-09-21.zip")
+          with zipfile.ZipFile(zname,"w",zipfile.ZIP_DEFLATED) as z:
+              for p in ROOT.rglob("*"):
+                  if p.is_file(): z.write(p,p.relative_to(ROOT.parent))
+          print("downloaded_images",len(manifest))
+          print("products_with_images",len(set(r[0] for r in manifest)))
+          print("failures",len(failures))
+          PY
+          python /tmp/fetch_gc.py
+          ls -lh NHJ_GooseCreek_Bodylotion_31_Product_Images_2026-09-21.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goosecreek-bodylotion-images-2026-09-21
+          path: |
+            NHJ_GooseCreek_Bodylotion_31_Product_Images_2026-09-21.zip
+            goosecreek_bodylotion_images/manifest.csv
+            goosecreek_bodylotion_images/failures.csv
+          retention-days: 7
