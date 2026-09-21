@@ -1,0 +1,95 @@
+name: Temporary Autumn Romance image fetch
+
+on:
+  push:
+    branches:
+      - "tmp/goosecreek-bodylotion-images-20260921"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-autumn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Fetch Autumn Romance exact product images
+        shell: bash
+        run: |
+          python -m pip install --quiet requests beautifulsoup4 pillow
+          cat > /tmp/autumn.py <<'PY'
+          import csv, hashlib, io, re, zipfile
+          from pathlib import Path
+          from urllib.parse import urljoin
+          import requests
+          from bs4 import BeautifulSoup
+          from PIL import Image
+
+          SOURCES=[
+            "https://www.aromahome.pl/product-pol-5099-GOOSE-CREEK-BB-BALSAM-AUTUMN-ROMANCE-250ML.html",
+            "https://www.kadoshopdeduizendpoot.nl/a-63276639/goose-creek-hydrating-body-lotion-handsoap/autumnn-romance-goose-creek-candle-hydraterende-bodylotion-8-4-fl-oz-250-ml/",
+          ]
+          out=Path("autumn_romance"); out.mkdir(exist_ok=True)
+          s=requests.Session(); s.headers.update({"User-Agent":"Mozilla/5.0 Chrome/128 Safari/537.36","Accept-Language":"en-US,en;q=0.9"})
+          rows=[]; n=1; seen=set()
+          for page in SOURCES:
+            try:
+              r=s.get(page,timeout=25); print("PAGE",page,r.status_code,len(r.content))
+              if r.status_code!=200: continue
+              soup=BeautifulSoup(r.text,"html.parser")
+            except Exception as e:
+              print("ERRPAGE",page,e); continue
+            candidates=[]
+            for m in soup.find_all("meta"):
+              prop=(m.get("property") or m.get("name") or "").lower()
+              if prop in ("og:image","twitter:image","twitter:image:src") and m.get("content"):
+                candidates.append((m.get("content"),120))
+            for img in soup.find_all("img"):
+              alt=(img.get("alt") or img.get("title") or "").lower()
+              score=0
+              if "autumn" in alt and "romance" in alt: score+=120
+              if "goose" in alt: score+=20
+              if "250" in alt or "body" in alt or "balsam" in alt: score+=20
+              for a in ("src","data-src","data-original","data-lazy-src"):
+                if img.get(a): candidates.append((img.get(a),score))
+              for a in ("srcset","data-srcset"):
+                if img.get(a):
+                  for bit in img.get(a).split(","):
+                    candidates.append((bit.strip().split(" ")[0],score))
+            # direct image URLs in HTML that look product-ish
+            for u in re.findall(r'https?://[^"\'<> ]+\.(?:jpg|jpeg|png|webp)(?:\?[^"\'<> ]*)?',r.text,re.I):
+              score=40 if ("5099" in u or "autumn" in u.lower()) else 5
+              candidates.append((u,score))
+            for raw,score in sorted(candidates,key=lambda x:x[1],reverse=True):
+              if n>3: break
+              u=urljoin(page,raw)
+              if u in seen: continue
+              seen.add(u)
+              try:
+                rr=s.get(u,headers={"Referer":page},timeout=20)
+                if rr.status_code!=200 or len(rr.content)<4000 or "image" not in rr.headers.get("content-type",""): continue
+                im=Image.open(io.BytesIO(rr.content)); im.load(); w,h=im.size
+                if min(w,h)<250: continue
+                # prefer square/portrait product-like photos
+                if score<30 and abs(w-h)>max(w,h)*0.7: continue
+                ext={"JPEG":"jpg","PNG":"png","WEBP":"webp"}.get(im.format.upper(),"jpg")
+                fp=out/f"{n:02d}.{ext}"; fp.write_bytes(rr.content)
+                rows.append([n,page,u,score,hashlib.sha256(rr.content).hexdigest(),w,h,str(fp)])
+                print("GOT",n,page,u,score,w,h)
+                n+=1
+              except Exception as e:
+                pass
+            if n>3: break
+          with open(out/"manifest.csv","w",newline="",encoding="utf-8-sig") as f:
+            w=csv.writer(f); w.writerow(["image_no","source_page","source_image_url","score","sha256","width","height","local_path"]); w.writerows(rows)
+          with zipfile.ZipFile("autumn-romance-images.zip","w",zipfile.ZIP_DEFLATED) as z:
+            for p in out.rglob("*"):
+              if p.is_file(): z.write(p,p.relative_to(out.parent))
+          print("TOTAL",len(rows))
+          PY
+          python /tmp/autumn.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: autumn-romance-images
+          path: autumn-romance-images.zip
+          retention-days: 7
