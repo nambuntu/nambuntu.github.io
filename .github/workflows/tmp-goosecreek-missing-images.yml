@@ -1,0 +1,155 @@
+name: Temporary Goose Creek missing image fetch
+
+on:
+  push:
+    branches:
+      - "tmp/goosecreek-bodylotion-images-20260921"
+
+permissions:
+  contents: read
+
+jobs:
+  fetch-missing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Fetch missing exact variants
+        shell: bash
+        run: |
+          python -m pip install --quiet requests beautifulsoup4 pillow
+          cat > /tmp/missing.py <<'PY'
+          import csv, hashlib, io, re, zipfile
+          from pathlib import Path
+          from urllib.parse import urljoin, urlparse
+          import requests
+          from bs4 import BeautifulSoup
+          from PIL import Image
+
+          TARGETS = {
+            "02_autumn-romance":[
+              ("Autumn Romance","https://www.goosecreekcandle.de/Autumn-Romance-Body-Lotion-250ml")
+            ],
+            "08_carnival-apple":[
+              ("Carnival Apple","https://poshmark.com/listing/Carnival-Apple-Soothing-Body-Lotion-640c9dc402760b3398337ad2")
+            ],
+            "15_eucalyptus-rain-drops":[
+              ("Eucalyptus Rain Drops","https://www.goosecreekcandle.de/Eucalyptus-Rain-Drops-Body-Lotion-250ml")
+            ],
+            "26_vanilla-pumpkin-waffle":[
+              ("Vanilla Pumpkin Waffle","https://poshmark.com/brand/Goose_Creek-Women-Bath_%26_Body-Moisturizer_%26_Body_Oil"),
+              ("Vanilla Pumpkin Waffle","https://www.mercari.com/us/brand/goose-creek-25630/beauty-6/"),
+              ("Vanilla Pumpkin Waffle","https://www.mercari.com/us/brand/goose-creek-25630/fragrance-89/")
+            ],
+            "27_warm-sunset":[
+              ("Warm Sunset","https://www.kadoshopdeduizendpoot.nl/a-63277060/goose-creek-hydrating-body-lotion-handsoap/warm-sunset-hydraterende-bodylotion/"),
+              ("Warm Sunset","https://www.candle-dream.de/goose-creek-candle/body-handcare/bodylotions/body-lotion-warm-sunset-250ml.html"),
+              ("Warm Sunset","https://www.mercari.com/us/brand/goose-creek-25630/fragrance-89/")
+            ]
+          }
+          ROOT=Path("missing_images"); ROOT.mkdir(exist_ok=True)
+          S=requests.Session()
+          S.headers.update({"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36","Accept-Language":"en-US,en;q=0.9,de;q=0.8"})
+
+          def candidates(soup,base,name):
+              arr=[]
+              key=name.lower()
+              # meta first
+              for m in soup.find_all("meta"):
+                  prop=(m.get("property") or m.get("name") or "").lower()
+                  if prop in ("og:image","twitter:image","twitter:image:src"):
+                      u=m.get("content")
+                      if u: arr.append((u,100,"meta"))
+              for img in soup.find_all("img"):
+                  alt=(img.get("alt") or img.get("title") or "").lower()
+                  srcs=[]
+                  for a in ("src","data-src","data-lazy-src","data-original"):
+                      if img.get(a): srcs.append(img.get(a))
+                  for a in ("srcset","data-srcset"):
+                      if img.get(a):
+                          srcs += [x.strip().split(" ")[0] for x in img.get(a).split(",")]
+                  score=0
+                  if key in alt: score+=100
+                  if "body lotion" in alt or "bodylotion" in alt: score+=40
+                  parent=img.parent
+                  context=(parent.get_text(" ",strip=True)[:500].lower() if parent else "")
+                  if key in context: score+=60
+                  for u in srcs:
+                      arr.append((u,score,"img"))
+              # JSON-ish URLs in HTML for dynamic marketplaces
+              html=str(soup)
+              for pat in [
+                  r'https:\\/\\/[^"\\]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"\\]*)?',
+                  r'https://[^"\s<>]+?\.(?:jpg|jpeg|png|webp)(?:\?[^"\s<>]*)?'
+              ]:
+                  for m in re.findall(pat,html,re.I):
+                      u=m.replace("\\/","/")
+                      # nearby heuristic from raw html segment impossible here; low score
+                      arr.append((u,5,"html"))
+              out=[]
+              seen=set()
+              for u,score,kind in sorted(arr,key=lambda x:x[1],reverse=True):
+                  u=urljoin(base,u)
+                  if u in seen: continue
+                  seen.add(u)
+                  if any(x in u.lower() for x in ("logo","icon","avatar","sprite","pixel","badge")): continue
+                  out.append((u,score,kind))
+              return out
+
+          manifest=[]; failures=[]
+          for folder,sources in TARGETS.items():
+              outdir=ROOT/folder; outdir.mkdir(exist_ok=True)
+              got_hash=set(); image_num=1
+              product_name=sources[0][0]
+              for name,page in sources:
+                  if image_num>3: break
+                  try:
+                      r=S.get(page,timeout=30); r.raise_for_status()
+                      soup=BeautifulSoup(r.text,"html.parser")
+                  except Exception as e:
+                      failures.append([folder,page,"page",str(e)]); continue
+                  for u,score,kind in candidates(soup,page,name):
+                      if image_num>3: break
+                      try:
+                          rr=S.get(u,headers={"Referer":page},timeout=30)
+                          if rr.status_code!=200 or len(rr.content)<3000: continue
+                          if "image" not in rr.headers.get("content-type",""): continue
+                          im=Image.open(io.BytesIO(rr.content)); im.verify()
+                          im2=Image.open(io.BytesIO(rr.content))
+                          w,h=im2.size
+                          if w<250 or h<250: continue
+                          digest=hashlib.sha256(rr.content).hexdigest()
+                          if digest in got_hash: continue
+                          # For weak marketplace matches, require decent resolution; exact alt/context scoring preferred.
+                          if score<40 and folder not in ("26_vanilla-pumpkin-waffle","27_warm-sunset"): continue
+                          ext={"JPEG":"jpg","PNG":"png","WEBP":"webp"}.get(im2.format.upper(),"jpg")
+                          fp=outdir/f"{image_num:02d}.{ext}"
+                          fp.write_bytes(rr.content)
+                          manifest.append([folder,product_name,page,image_num,u,score,kind,str(fp),digest,len(rr.content),w,h,"candidate-unapproved"])
+                          got_hash.add(digest); image_num+=1
+                      except Exception:
+                          pass
+              if image_num==1:
+                  failures.append([folder,"; ".join(p for _,p in sources),"images","No image downloaded"])
+
+          with open(ROOT/"manifest.csv","w",newline="",encoding="utf-8-sig") as f:
+              w=csv.writer(f); w.writerow(["folder","product_name","source_page","image_no","source_image_url","match_score","discovery","local_path","sha256","bytes","width","height","status"]); w.writerows(manifest)
+          with open(ROOT/"failures.csv","w",newline="",encoding="utf-8-sig") as f:
+              w=csv.writer(f); w.writerow(["folder","source","stage","error"]); w.writerows(failures)
+          z=zipfile.ZipFile("missing-images.zip","w",zipfile.ZIP_DEFLATED)
+          for p in ROOT.rglob("*"):
+              if p.is_file(): z.write(p,p.relative_to(ROOT.parent))
+          z.close()
+          print("images",len(manifest))
+          print("coverage",len(set(x[0] for x in manifest)))
+          print("failures",failures)
+          for row in manifest: print("GOT",row[0],row[3],row[4],row[10],row[11])
+          PY
+          python /tmp/missing.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goosecreek-missing-images-2026-09-21
+          path: |
+            missing-images.zip
+            missing_images/manifest.csv
+            missing_images/failures.csv
+          retention-days: 7
