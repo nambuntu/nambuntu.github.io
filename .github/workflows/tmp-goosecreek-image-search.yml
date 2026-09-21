@@ -1,0 +1,80 @@
+name: Temporary Goose Creek image search
+
+on:
+  push:
+    branches:
+      - "tmp/goosecreek-bodylotion-images-20260921"
+
+permissions:
+  contents: read
+
+jobs:
+  image-search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Find exact legacy product photos
+        shell: bash
+        run: |
+          python -m pip install --quiet requests pillow beautifulsoup4
+          cat > /tmp/search.py <<'PY'
+          import csv, hashlib, io, json, re, urllib.parse, zipfile
+          from pathlib import Path
+          import requests
+          from PIL import Image
+
+          QUERIES = {
+            "02_autumn-romance": '"Goose Creek" "Autumn Romance" "Body Lotion" 250ml',
+            "15_eucalyptus-rain-drops": '"Goose Creek" "Eucalyptus Rain Drops" "Body Lotion"',
+            "26_vanilla-pumpkin-waffle": '"Goose Creek" "Vanilla Pumpkin Waffle" "Body Lotion"',
+            "27_warm-sunset": '"Goose Creek" "Warm Sunset" "Body Lotion" 250ml',
+          }
+          ROOT=Path("search_candidates"); ROOT.mkdir(exist_ok=True)
+          S=requests.Session()
+          S.headers.update({"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36"})
+          rows=[]
+          for folder,q in QUERIES.items():
+              out=ROOT/folder; out.mkdir(exist_ok=True)
+              url="https://www.bing.com/images/search?"+urllib.parse.urlencode({"q":q,"form":"HDRSC3","first":"1"})
+              r=S.get(url,timeout=30); r.raise_for_status()
+              text=r.text
+              items=[]
+              for m in re.findall(r'<a[^>]+class="iusc"[^>]+m="([^"]+)"',text,re.I):
+                  try:
+                      data=json.loads(m.replace("&quot;",'"'))
+                      if data.get("murl"): items.append((data.get("murl"),data.get("purl"),data.get("turl")))
+                  except: pass
+              # Alternate JSON-ish extraction.
+              for murl,purl in re.findall(r'&quot;murl&quot;:&quot;(.*?)&quot;.*?&quot;purl&quot;:&quot;(.*?)&quot;',text,re.I|re.S):
+                  items.append((murl.replace("\/","/"),purl.replace("\/","/"),None))
+              seen=set(); n=0
+              for murl,purl,turl in items:
+                  if murl in seen: continue
+                  seen.add(murl)
+                  try:
+                      rr=S.get(murl,headers={"Referer":purl or url},timeout=20)
+                      if rr.status_code!=200 or len(rr.content)<5000 or "image" not in rr.headers.get("content-type",""): continue
+                      im=Image.open(io.BytesIO(rr.content)); im.load()
+                      w,h=im.size
+                      if min(w,h)<250: continue
+                      n+=1
+                      ext={"JPEG":"jpg","PNG":"png","WEBP":"webp"}.get(im.format.upper(),"jpg")
+                      fp=out/f"{n:02d}.{ext}"; fp.write_bytes(rr.content)
+                      rows.append([folder,n,q,murl,purl or "",turl or "",str(fp),hashlib.sha256(rr.content).hexdigest(),w,h])
+                      if n>=15: break
+                  except Exception:
+                      pass
+          with open(ROOT/"manifest.csv","w",newline="",encoding="utf-8-sig") as f:
+              w=csv.writer(f); w.writerow(["folder","candidate_no","query","image_url","page_url","thumb_url","local_path","sha256","width","height"]); w.writerows(rows)
+          with zipfile.ZipFile("search-candidates.zip","w",zipfile.ZIP_DEFLATED) as z:
+              for p in ROOT.rglob("*"):
+                  if p.is_file(): z.write(p,p.relative_to(ROOT.parent))
+          print("rows",len(rows))
+          for r in rows: print("CAND",r[0],r[1],r[3],r[4],r[8],r[9])
+          PY
+          python /tmp/search.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goosecreek-image-search-candidates
+          path: search-candidates.zip
+          retention-days: 7
